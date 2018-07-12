@@ -1,268 +1,149 @@
-#coding=utf-8
 import requests
 from bs4 import BeautifulSoup
-# from CrawlerLog import *
 import os
-from time import sleep
-import random
 import re
 import json
 
-# default parameter
-picturePath = 'D:/Crawler/FGO/picture_hero/'
-videoPath = 'D:/Crawler/FGO/video/'
-mycodePath = 'D:/Crawler/FGO/picture_mycode/'
-heroPath = 'D:/Crawler/FGO/FGO Hero/'
-mycodeDataPath = 'D:/Crawler/FGO/FGO Mystic Code/'
-logDirectory = r'D:/Crawler/FGO/log/'
 
+class FGOCrawler:
 
-####### 程序开始 #######
-traceOn = True
-basedUrlHero = 'http://fgowiki.com/guide/petdetail/'
-basedUrlMysticCode = 'http://fgowiki.com/guide/equipdetail/'
+    def __init__(self, dest):
+        # dest is the root directory of download data
+        self.dest = dest
+        self.header = {
+            "User-Agent": "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)",
+            "Referer": "http://fgowiki.com/guide/petdetail/"
+        }
+        self.servantlist = []
 
-if(not os.path.exists(logDirectory)):
-    os.makedirs(logDirectory)
-    if (traceOn): print("Created - " + logDirectory)
-if(not os.path.exists(picturePath)):
-    os.makedirs(picturePath)
-    if (traceOn): print("Created - " + picturePath)
-if(not os.path.exists(videoPath)):
-    os.makedirs(videoPath)
-    if (traceOn): print("Created - " + videoPath)
+    def crawl_servant(self):
+        self.crawl_servant_name()
+        # TODO crawl servant detail
+        # TODO make this task parallel, it's too slow now
+        idx = 1
+        for name in self.servantlist:
+            # crawl servant images
+            for srctype in "ABCDE":
+                self.crawl_servant_img(idx, srctype, self.dest + "/" + name + "/img/")
+                #return
+            # crawl noble phantasm video
+            # self.crawl_noble_phantasm_video(idx, self.dest + "/" + name + "/video/")
+            idx += 1
 
-if (traceOn): print("PictureCrawler for: " + basedUrlHero)
+    def crawl_servant_name(self, baseurl="https://fgowiki.com/guide/petdetail/"):
+        response = requests.get(baseurl, headers=self.header)
+        response.encoding = 'utf-8'
+        soup = BeautifulSoup(response.content, "html.parser")
+        servants = soup.find('select', class_='pet').find_all('option')
+        for servant in servants[1:]:
+            self.servantlist.append(str(servant.get_text()))
+        for servant in self.servantlist:
+            self.checkdir(servant)
 
-# header - 防止防盗链
-header = {
-    'User-Agent':'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)',
-    'Referer':'http://fgowiki.com/guide/petdetail/'
-}
+    def checkdir(self, servant):
+        """ before crawling, first check the dest directory """
+        dest = self.dest
+        if not os.path.exists(dest):
+            os.mkdir(dest)
 
+        svdest = dest + "/" + servant
+        print(svdest)
+        if not os.path.exists(svdest):
+            os.mkdir(svdest)
+        imgdest = svdest + "/img"
+        if not os.path.exists(imgdest):
+            os.mkdir(imgdest)
+        videodest = svdest + "/video"
+        if not os.path.exists(videodest):
+            os.mkdir(videodest)
 
-def getFormattedIndexString(index):
-    maxLen = 3
-    rev = str(index)
-    ilen = len(str(index))
-    if(ilen < 1 or ilen > 3):
-        return None
-
-    for i in range(0, maxLen-ilen):
-        rev = '0' + rev
-    return rev
-
-
-def crawlFGOPicture(heroList, imgType = 'A'):
-    # crawling the pictures
-    # img.fgowiki.com/fgo/card/servant/002A.jpg
-    imgUrl = 'http://img.fgowiki.com/fgo/card/servant/'
-
-    for heroIndex in range(1, len(heroList)+1):
-        cardUrl = imgUrl + getFormattedIndexString(heroIndex) + imgType + '.jpg'
-        imgHtml = requests.get(cardUrl, headers=header)
-
-        savedFilePath = picturePath + str(heroIndex) + "_" + imgType + ".jpg"
-        f = open(savedFilePath, 'wb')
-        f.write(imgHtml.content)
+    def crawl_servant_img(self, idx, srctype, dest, baseurl="https://img.fgowiki.com/fgo/card/servant/"):
+        """
+        :param idx: indicates the servant id
+        :param srctype:
+        [A - 1
+         B - 2
+         C - 3
+         D - 4
+         E - Fool's day]
+        :param dest: dest directory
+        :param baseurl: "https://img.fgowiki.com/fgo/card/servant/"
+        :return:
+        """
+        # invalid index
+        if idx <= 0:
+            return
+        url = baseurl + ("00" + str(idx))[-3:] + srctype + ".jpg"
+        print(url)
+        response = requests.get(url, headers=self.header)
+        destfolder = dest + ("00" + str(idx))[-3:] + "_" + srctype + ".jpg"
+        print(destfolder)
+        f = open(destfolder, 'wb')
+        f.write(response.content)
         f.close()
 
-        sleep(random.randint(1, 10) * 0.01)
-        print("Crawling - " + cardUrl + " done.")
-
-
-def crawlFGOVideo(heroList):
-    # crawling the videos
-    # img.fgowiki.com/fgo/card/servant/002A.jpg
-    logObject = CrawlerLog(logDirectory + 'video.log')
-    videoBasedUrl = 'http://img.fgowiki.com/fgo/mp4/'
-
-    for heroIndex in range(1, len(heroList)+1):
-        videoUrl = videoBasedUrl + 'No.' + getFormattedIndexString(heroIndex) + '.mp4'
-        if(logObject.checkTargetIn(videoUrl)):
-            print("Repeated video - " + videoUrl)
-            continue
-
-        print("Crawling new video - " + videoUrl)
-        imgHtml = requests.get(videoUrl, headers=header)
-        if (imgHtml.status_code != 200):
-            # if respond code is not 200 -> pass
-            print('invalid video - ' + videoUrl)
-            continue
-
-        savedFilePath = videoPath + str(heroIndex) + ".mp4"
-        f = open(savedFilePath, 'wb')
-        f.write(imgHtml.content)
+    def crawl_noble_phantasm_video(self, idx, dest, baseurl="https://img.fgowiki.com/fgo/mp4/"):
+        """
+        :param idx: indicates the servant id
+        :param dest: dest directory
+        :param baseurl: "https://img.fgowiki.com/fgo/mp4/"
+        :return:
+        """
+        # invalid index
+        if idx <= 0:
+            return
+        url = baseurl + "No." + ("00" + str(idx))[-3:] + ".mp4"
+        print(url)
+        response = requests.get(url, headers=self.header)
+        f = open(dest + "No." + ("00" + str(idx))[-3:] + "_" + ".mp4", 'wb')
+        f.write(response.content)
         f.close()
 
-        sleep(random.randint(1, 10) * 0.01)
-        print("Crawling - " + videoUrl + " done.")
-        logObject.addNewEntry(videoUrl)
-
-
-def crawlFGOHeroData(heroList):
-    heroLogPath = logDirectory + 'hero.log'
-    heroListFilePath = heroPath + 'HeroList.txt'
-    if(not os.path.exists(heroLogPath)): # if there is no log -> initialize the output file
-        if(os.path.exists(heroListFilePath)):
-            os.remove(heroListFilePath)
-            print('Initialized the output file.')
-
-    logObject = CrawlerLog(heroLogPath)
-    # 0 and 1 are both 玛修, start from 1
-    for heroIndex in range(0, len(heroList)):
-        heroPageUrl = basedUrlHero + str(heroIndex + 1) # start from 1! NOT 0
-        if(logObject.checkTargetIn(heroPageUrl)): # check repeating data
-            print("Repeated Hero - No." + str(heroIndex+1) + ' ' + heroList[heroIndex])
-            continue
-
-        print("Getting data for New Hero - No." + str(heroIndex+1) + ' ' + heroList[heroIndex])
-        print(heroPageUrl)
-        pageHtml = requests.get(heroPageUrl, headers=header)
-        '''
-       Attention: 
-       re.match only match the string ONLY from text BEGINNING, 
-       re.search match the string from every char
-       regular expresss to get JSON data ->  r'\[{\"ID\"(.*?)}\]'
-       '''
-        jsonData = re.search('\[{\"ID\"(.*?)}\];', pageHtml.text)
-        #print(pageHtml.text)
-        if(jsonData):
-            jsonString = jsonData.group()[:-1]
-            #if(traceOn): print(jsonString + " Found.")
-            heroDict = json.loads(jsonString) # get dictionary of Json
-            #for key in heroDict[0]: print(key),
-            separator = '###'
-            writeText = str(heroIndex) + separator + str(heroDict[0]['NAME']) + \
-                        separator + str(heroDict[0]['CLASS']) + separator + str(heroDict[0]['STAR']) + separator + str(heroDict[0]['Gender'])\
-                        + separator + str(heroDict[0]['ILLUST']) + separator + str(heroDict[0]['Property'])
-            if(traceOn): print(writeText)
-
-            #output the result
-            f = open(heroListFilePath, 'a')
-            f.write(writeText + '\n')
-            f.close()
-            print("Hero No." + str(heroIndex+1) + " downloaded.")
-            # save in log
-            logObject.addNewEntry(heroPageUrl)
-
-
-def crawlFGOMyCode(imgType):
-    logObject = CrawlerLog(logDirectory + 'mycode.log')
-    basedUrlMyCode = 'http://img.fgowiki.com/fgo/card/equip/'
-    for codeIndex in range(0, 10000): # up to 10000 cards so far
-        # index start from 1
-        codeUrl = basedUrlMyCode + getFormattedIndexString(codeIndex+1) + imgType + '.jpg'
-        if(logObject.checkTargetIn(codeUrl)):
-            print('Repeated Mystic Code - ' + codeUrl)
-            continue
-
-        mycodeHtml = requests.get(codeUrl, headers=header)
-        if(mycodeHtml.status_code != 200):
-            # if respond code is not 200 -> exit (usually no new cards get)
-            print('Finished, totally get ' + str(codeIndex+1) + ' cards.')
-            return codeIndex+1
-
-        savedFilePath = mycodePath + str(codeIndex+1) + ".jpg"
-        f = open(savedFilePath, 'wb')
-        f.write(mycodeHtml.content)
+    def crawl_equip_img(self, idx, srctype, dest, baseurl="https://img.fgowiki.com/fgo/card/equip/"):
+        """
+        :param idx: indicates the equip card id
+        :param srctype: currently should always be "A"
+        :param dest: dest directory
+        :param baseurl: "https://img.fgowiki.com/fgo/card/equip/"
+        :return:
+        """
+        # invalid index
+        if idx <= 0:
+            return
+        url = baseurl + ("00" + str(idx))[-3:] + srctype + ".jpg"
+        print(url)
+        response = requests.get(url, headers=self.header)
+        f = open(dest + ("00" + str(idx))[-3:] + "_" + srctype + ".jpg", 'wb')
+        f.write(response.content)
         f.close()
 
-        sleep(random.randint(1, 10) * 0.01)
-        print("Crawling - " + codeUrl + " done.")
-        logObject.addNewEntry(codeUrl)
+    def crawl_equip(self, idx, dest, baseurl="https://fgowiki.com/guide/equipdetail/"):
+        """ crawl and save to json file
+
+        :param idx: indicates the equip card id
+        :param dest: dest directory
+        :param baseurl: "https://fgowiki.com/guide/equipdetail/"
+        :return:
+        """
+        # invalid index
+        if idx <= 0:
+            return
+        url = baseurl + idx
+        print(url)
+        response = requests.get(url, headers=self.header)
+        response.encoding = "utf-8"
+        soup = BeautifulSoup(response.content, "html.parser")
+        scripts = soup.find_all("script")
+        pattern = re.compile("\nvar datadetail = (.*?);")
+        for script in scripts:
+            m = pattern.match(str(script.string))
+            if m:
+                equipjson = str(m.group()).split("\nvar datadetail = ")[1]
+                # print(equipjson)
+                jo = json.loads(equipjson[1:-2], encoding="utf-8")
+                with open(dest + ".json", "w") as fp:
+                    json.dump(jo, fp)
 
 
-def crawlFGOMyCodeData(maxNo):
-    myCodeLogPath = logDirectory + 'mycode(data).log'
-    mycodeListFilePath = mycodeDataPath + 'MysticCodeList.txt'
-    if (not os.path.exists(myCodeLogPath)):  # if there is no log -> initialize the output file
-        if (os.path.exists(mycodeListFilePath)):
-            os.remove(mycodeListFilePath)
-            print('Initialized the output file.')
-
-    logObject = CrawlerLog(myCodeLogPath)
-    # start from 1
-    for codeIndex in range(1, maxNo):
-        mycodePageUrl = basedUrlMysticCode + str(codeIndex)  # start from 1!
-        if (logObject.checkTargetIn(mycodePageUrl)):  # check repeating data
-            print("Repeated Mystic Code - No." + str(codeIndex))
-            continue
-
-        print("Getting data for New Mystic Code - No." + str(codeIndex))
-        print('downloading - ' + mycodePageUrl)
-        pageHtml = requests.get(mycodePageUrl, headers=header)
-        '''
-       Attention: 
-       re.match only match the string ONLY from text BEGINNING, 
-       re.search match the string from every char
-       regular expresss to get JSON data ->  r'\[{\"ID\"(.*?)}\]'
-       '''
-        jsonData = re.search('\[{\"ID\"(.*?)}\];', pageHtml.text)
-        # print(pageHtml.text)
-        if (jsonData):
-            jsonString = jsonData.group()[:-1] # get last matching object
-            heroDict = json.loads(jsonString)  # get dictionary of Json
-            # for key in heroDict[0]: print(key),
-            separator = '###'
-            writeText = str(heroDict[0]['ID']) + separator + str(heroDict[0]['NAME_CN']) + \
-                        separator + str(heroDict[0]['STAR']) + separator + str(heroDict[0]['SKILL_E']).replace('\n', '') + \
-                        separator + str(heroDict[0]['SKILLMAX_E']).replace('\n', '') + separator + \
-                        str(heroDict[0]['INTRO']).replace('\n', '')
-            if (traceOn): print(writeText)
-
-            # output the result
-            f = open(mycodeListFilePath, 'a')
-            f.write(writeText + '\n')
-            f.close()
-            print("Hero No." + str(codeIndex) + " downloaded.")
-            # save in log
-            logObject.addNewEntry(mycodePageUrl)
-
-    return
-
-
-def crawlFGO():
-    heroList = []
-    html = requests.get(basedUrlHero, headers=header)
-    soup = BeautifulSoup(html.text, "html.parser")  # parse this page
-    allLabelA = soup.find('select', class_='pet').find_all('option')  # get list of results
-    html.encoding = 'utf-8'
-
-    for labelA in allLabelA:
-        hero = labelA.get_text()  # 提取 图片主题 的 文本描述
-        if (hero == ''):
-            continue
-        # if(traceOn): print (hero + "/")
-        heroList.append(str(hero))
-
-    sleep(random.randint(1, 10) * 0.01)
-    print("共有英灵总数 - " + str(len(heroList)))
-
-    #1 crawling hero data
-    #crawlFGOHeroData(heroList)
-
-    #2 crawling hero pictures
-    ''' 
-    图片索引字母imgType
-        A - 1破
-        B - 2破
-        C - 3破
-        D - 4破
-        E - 愚人节  
-     '''
-    #crawlFGOPicture(heroList, 'C')
-
-    #3 crawling hero final skills videos
-    crawlFGOVideo(heroList)
-
-    #4 crawling mystic code cards picture
-    #mycodeMaxNo = crawlFGOMyCode('A')
-
-    #5 crawling mystic code data data
-    #crawlFGOMyCodeData(int(mycodeMaxNo))
-
-
-if( __name__ == "__main__"):
-    # main function
-    crawlFGO()
+fgocrawl = FGOCrawler("/Users/kankun/Documents/pic")
+fgocrawl.crawl_servant()
