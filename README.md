@@ -8,11 +8,13 @@ I'm a fan of FGO(Fate Grand Order), instead of game I'm usually obsessed with th
 - [x] servant's noble phantasm video
 - [x] equipment card image
 - [x] equipment card detail
+- [x] use multi-thread to speed up crawl
+- [x] progress bar 
 - [ ] resource detail
 - [ ] servant's detail
-- [ ] use multi-thread to speed up crawl
 - [ ] crawl an input servant
 - [ ] auto-find servant when user types his prefix
+
 
 
 ![image](https://github.com/byelaney/FGO-Wiki-Crawler/blob/master/196_E.jpg)

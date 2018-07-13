@@ -220,6 +220,7 @@ class FGOCrawler:
         sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', suffix))
         sys.stdout.flush()
 
+
 if __name__ == '__main__':
     dest = "/Users/kankun/Documents/fgo/"
     crawler = FGOCrawler(dest)
@@ -262,20 +263,3 @@ if __name__ == '__main__':
         thread.join()
 
     crawler.progress(FGOCrawler.count, FGOCrawler.total)
-
-    # close the pool and wait for the work to finish
-    # pool.close()
-    # pool.join()
-
-    # try:
-    #     beforeBegin(classNum=4)
-    #     lock.acquire()
-    #     for i in range(1, 75):
-    #         t = threading.Thread(target=getMaterial, args=(i,))
-    #         t.start()
-    #
-    #     for i in range(1, 150):
-    #         t = threading.Thread(target=getHero, args=(i,))
-    #         t.start()
-    # finally:
-    #     quitAllClass()
