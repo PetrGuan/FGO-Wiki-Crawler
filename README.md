@@ -2,15 +2,12 @@
 
 I'm a fan of FGO(Fate Grand Order), instead of game I'm usually obsessed with the story behind each servant. This is a playtoy project to crawl FGO data from fgowiki.
 
-### TODO List
+### About
+It's just a simple FGO crawler. You can use it to crawl FGO servant image.(or more...)
 
-- [x] servant's image
-- [x] servant's noble phantasm video
-- [x] equipment card image
-- [x] equipment card detail
-- [x] use multi-thread to speed up crawl
-- [x] progress bar 
-- [ ] resource detail
+### TODO List
+- [ ] servant's noble phantasm video
+- [ ] crawl resource
 - [ ] servant's detail
 - [ ] crawl an input servant
 - [ ] auto-find servant when user types his prefix
