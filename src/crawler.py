@@ -236,7 +236,11 @@ class FGOCrawler:
 
 
 if __name__ == '__main__':
-    dest = "/Users/kankun/Documents/fgo"
+    # dest = "/Users/kankun/Documents/fgo"
+    cwd = os.getcwd() + "/fgo"
+    if not os.path.exists(cwd):
+        os.mkdir(cwd)
+    dest = cwd
     crawler = FGOCrawler(dest)
     print("Welcome to FGO-Crawler!\n")
     while True:
